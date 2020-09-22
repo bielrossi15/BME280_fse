@@ -12,8 +12,6 @@ calibracao_paramentros = bme280.load_calibration_params(bus, endereco)
 
 lcd = RPi_I2C_driver.lcd()
 
-lcd.lcd_display_string(f"Joao Rossi", 1)
-
 while True:
     try:
         dado = bme280.sample(bus, endereco, calibracao_paramentros)
