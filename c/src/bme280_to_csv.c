@@ -125,12 +125,12 @@ int8_t stream_sensor_data(struct bme280_dev *dev) {
     char hour[hour_size];
     uint8_t it = 0;
 
-    if((file = fopen("data/data.csv", "r+")) == NULL) {
+    if((file = fopen("./data.csv", "r+")) == NULL) {
         fprintf(stderr, "File does not exist, creating...\n");
     }
 
     if(!file) {
-        file = fopen("data/data.csv", "a");
+        file = fopen("./data.csv", "a");
         fprintf(file, "TEMPERATURA(oC),PRESSAO(hPa),UMIDADE(%%),DIA,HORA\n");
         fprintf(stdout, "File created!\n");
     }
@@ -149,7 +149,7 @@ int8_t stream_sensor_data(struct bme280_dev *dev) {
     req_delay = bme280_cal_meas_delay(&dev->settings);
 
     while(1) {
-        file = fopen("data/data.csv", "a");
+        file = fopen("./data.csv", "a");
 
         result = bme280_set_sensor_mode(BME280_FORCED_MODE, dev);
         dev->delay_us(req_delay, dev->intf_ptr);
