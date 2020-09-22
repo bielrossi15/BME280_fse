@@ -111,7 +111,7 @@ int8_t user_i2c_write(uint8_t reg_addr, const uint8_t *data, uint32_t len, void 
 
 int8_t stream_sensor_data(struct bme280_dev *dev) {
     FILE * file;
-    int8_t result;
+    int8_t result = BME280_OK;
     uint8_t settings;
     uint32_t req_delay;
     struct info sensor_info;
