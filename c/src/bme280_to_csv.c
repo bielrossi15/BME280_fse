@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <fcntl.h>
+#include <time.h>
 #include "bme280.h"
 
 struct sensor {
@@ -23,6 +24,7 @@ int8_t stream_sensor_data(struct bme280_dev *dev);
 int8_t user_i2c_read(uint8_t reg_addr, uint8_t *data, uint32_t len, void *intf_ptr);
 int8_t user_i2c_write(uint8_t reg_addr, const uint8_t *data, uint32_t len, void *intf_ptr);
 void user_delay_us(uint32_t period, void *intf_ptr);
+void format_time(char *time_string, short is_hour);
 
 int main(int argc, char* argv[]) {
     struct bme280_dev dev;
@@ -43,6 +45,7 @@ int main(int argc, char* argv[]) {
     }
 
     id.addr = BME280_I2C_ADDR_PRIM;
+    printf("%d", id.addr);
 
     if (ioctl(id.fd, I2C_SLAVE, id.addr) < 0)
     {
@@ -111,21 +114,27 @@ int8_t user_i2c_write(uint8_t reg_addr, const uint8_t *data, uint32_t len, void 
 
 int8_t stream_sensor_data(struct bme280_dev *dev) {
     FILE * file;
-    int8_t result = BME280_OK;
+    int8_t result;
     uint8_t settings;
     uint32_t req_delay;
     struct info sensor_info;
     struct bme280_data comp_data;
-    uint8_t i = 0;
+    const int hour_size = 9;
+    const int date_size = 11;
+    char date[date_size];
+    char hour[hour_size];
+    uint8_t it = 0;
 
-    if((file = fopen("./data/sensor_data.csv", "a")) == NULL) {
-        fprintf(stderr, "Failed to initialize the device (code %+d).\n", result);
-        return -1;
+    if((file = fopen("data/data.csv", "r+")) == NULL) {
+        fprintf(stderr, "File does not exist, creating...\n");
     }
 
-    if(ftell(file) == 0) {
-        fprintf(file, "TEMPERATURA,PRESSAO,UMIDADE\n");
+    if(!file) {
+        file = fopen("data/data.csv", "a");
+        fprintf(file, "TEMPERATURA(oC),PRESSAO(hPa),UMIDADE(%%),DIA,HORA\n");
+        fprintf(stdout, "File created!\n");
     }
+
     fclose(file);
 
     dev->settings.osr_h = BME280_OVERSAMPLING_1X;
@@ -140,13 +149,14 @@ int8_t stream_sensor_data(struct bme280_dev *dev) {
     req_delay = bme280_cal_meas_delay(&dev->settings);
 
     while(1) {
-        file = fopen("./data/sensor_data.csv", "a+");
+        file = fopen("data/data.csv", "a");
 
         result = bme280_set_sensor_mode(BME280_FORCED_MODE, dev);
         dev->delay_us(req_delay, dev->intf_ptr);
+        sleep(1);
         result = bme280_get_sensor_data(BME280_ALL, &comp_data, dev);
 
-        if(i < 10) {
+        if(it < 10) {
             sensor_info.temp += comp_data.temperature;
             sensor_info.prsr += comp_data.pressure;
             sensor_info.hmd += comp_data.humidity;
@@ -156,16 +166,32 @@ int8_t stream_sensor_data(struct bme280_dev *dev) {
             sensor_info.temp /= 10.0;
             sensor_info.prsr /= 10.0;
             sensor_info.hmd /= 10.0;
-            fprintf(file, "%0.2f,%0.2f,%0.2f\n", sensor_info.temp, sensor_info.prsr, sensor_info.hmd);
-            i = 0;
+            format_time(date, 0);
+            format_time(hour, 1);
+            fprintf(file, "%0.2f,%0.2f,%0.2f,%s,%s\n", sensor_info.temp, sensor_info.prsr, sensor_info.hmd, date, hour);
+            it = 0;
         }
 
-        printf("%d %0.2f,%0.2f,%0.2f\n", i, comp_data.temperature, comp_data.pressure, comp_data.humidity);
         fflush(file);
-        sleep(1);
-        i++;
+        it++;
     }
 
     fclose(file);
     return result;
+}
+
+void format_time(char *time_string, short is_hour) {
+    time_t rawtime;
+    struct tm * tm_data;
+
+    time(&rawtime);
+    tm_data = localtime(&rawtime);
+
+    if(is_hour) {
+        sprintf(time_string, "%02d:%02d:%02d", tm_data->tm_hour, tm_data->tm_min, tm_data->tm_sec);
+    }
+
+    if(!is_hour) {
+        sprintf(time_string, "%02d-%02d-%04d", tm_data->tm_mday, tm_data->tm_mon+1, 1900+tm_data->tm_year);
+    }
 }
